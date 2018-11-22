@@ -2,7 +2,7 @@
  *	Fibaro Wall Plug ZW5
  */
 metadata {
-	definition (name: "Fibaro Wall Plug US ZW5", namespace: "FibarGroup", author: "Fibar Group") {
+	definition (name: "Fibaro Wall Plug US ZW5", namespace: "FibarGroup", author: "Fibar Group", ocfDeviceType: "oic.d.smartplug") {
 		capability "Switch"
 		capability "Energy Meter"
 		capability "Power Meter"
@@ -93,7 +93,7 @@ def on() {
 	def cmds = []
 	cmds << [zwave.basicV1.basicSet(value: 0xFF),1]
 	cmds << [zwave.switchBinaryV1.switchBinaryGet(),1]
-	encapSequence(cmds,500)
+	encapSequence(cmds,2000)
 }
 
 def off() {
@@ -101,7 +101,7 @@ def off() {
 	def cmds = []
 	cmds << [zwave.basicV1.basicSet(value: 0),1]
 	cmds << [zwave.switchBinaryV1.switchBinaryGet(),1]
-	encapSequence(cmds,500)
+	encapSequence(cmds,2000)
 }
 
 def reset() {
@@ -164,6 +164,7 @@ def configure() {
 
 def ping() {
 	log.debug "ping..()"
+	childRefresh()
 	refresh()
 	//response(refresh())
 }
@@ -209,7 +210,7 @@ private syncNext() {
 	}
 }
 
-private syncCheck() {
+def syncCheck() {
 	logging("Executing syncCheck()","info")
 	def failed = []
 	def incorrect = []
@@ -304,24 +305,34 @@ def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cm
 
 def zwaveEvent(physicalgraph.zwave.commands.meterv3.MeterReport cmd, ep=null) {
 	log.warn "${device.displayName} - MeterReport received, value: ${cmd.scaledMeterValue} scale: ${cmd.scale} ep: $ep"
-	if (ep==1) {
+	if (!ep || ep==1) {
 		log.warn "chanell1"
 		switch (cmd.scale) {
-			case 0: sendEvent([name: "energy", value: cmd.scaledMeterValue, unit: "kWh"]); break;
-			case 2: sendEvent([name: "power", value: cmd.scaledMeterValue, unit: "W"]); break;
+			case 0: sendEvent([name: "energy", value: cmd.scaledMeterValue, unit: "kWh"]);
+					break;
+			case 2: sendEvent([name: "power", value: cmd.scaledMeterValue, unit: "W"]);
+					break;
 		}
-		if (device.currentValue("energy") != null) {multiStatusEvent("${device.currentValue("power")} W / ${device.currentValue("energy")} kWh")}
-		else {multiStatusEvent("${device.currentValue("power")} W / 0.00 kWh")}
+		if (device.currentValue("energy") != null) {
+			multiStatusEvent("${device.currentValue("power")} W / ${device.currentValue("energy")} kWh")
+		} else {
+			multiStatusEvent("${device.currentValue("power")} W / 0.00 kWh")
+		}
 	}
 
 	if (ep==2) {
 		log.warn "chanell2"
 		switch (cmd.scale) {
-			case 0: getChild(2)?.sendEvent([name: "energy", value: cmd.scaledMeterValue, unit: "kWh"]); break;
-			case 2: getChild(2)?.sendEvent([name: "power", value: cmd.scaledMeterValue, unit: "W"]); break;
+			case 0: getChild(2)?.sendEvent([name: "energy", value: cmd.scaledMeterValue, unit: "kWh"]);
+					break;
+			case 2: getChild(2)?.sendEvent([name: "power", value: cmd.scaledMeterValue, unit: "W"]);
+					break;
 		}
-		if (device.currentValue("energy") != null) {ch2MultiStatusEvent("${getChild(2)?.currentValue("power")} W / ${getChild(2)?.currentValue("energy")} kWh")}
-		else {ch2MultiStatusEvent("${getChild(2)?.currentValue("power")} W / 0.00 kWh")}
+		if (device.currentValue("energy") != null) {
+			ch2MultiStatusEvent("${getChild(2)?.currentValue("power")} W / ${getChild(2)?.currentValue("energy")} kWh")
+		} else {
+			ch2MultiStatusEvent("${getChild(2)?.currentValue("power")} W / 0.00 kWh")
+		}
 	}
 }
 
